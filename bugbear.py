@@ -373,6 +373,7 @@ class BugBearVisitor(ast.NodeVisitor):
         # Useful for tracing what the hell is going on.
 
         def __getattr__(self, name):
+            print(name)
             return self.__getattribute__(name)
 
     @property
