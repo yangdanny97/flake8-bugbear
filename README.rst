@@ -199,7 +199,7 @@ second usage. Save the result to a list if the result is needed multiple times.
 
 **B037**: Found ``return <value>``, ``yield``, ``yield <value>``, or ``yield from <value>`` in class ``__init__()`` method. No values should be returned or yielded, only bare ``return``\s are ok.
 
-**B038**: Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs.
+**B038**: **Moved to B909** - Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs.
 
 Opinionated warnings
 ~~~~~~~~~~~~~~~~~~~~
@@ -247,6 +247,8 @@ This is meant to be enabled by developers writing visitors using the ``ast`` mod
 **B907**: Consider replacing ``f"'{foo}'"`` with ``f"{foo!r}"`` which is both easier to read and will escape quotes inside ``foo`` if that would appear. The check tries to filter out any format specs that are invalid together with ``!r``. If you're using other conversion flags then e.g. ``f"'{foo!a}'"`` can be replaced with ``f"{ascii(foo)!r}"``. Not currently implemented for python<3.8 or ``str.format()`` calls.
 
 **B908**: Contexts with exceptions assertions like ``with self.assertRaises`` or ``with pytest.raises`` should not have multiple top-level statements. Each statement should be in its own context. That way, the test ensures that the exception is raised only in the exact statement where you expect it.
+
+**B909**: **Was B038** - Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs.
 
 **B950**: Line too long. This is a pragmatic equivalent of
 ``pycodestyle``'s ``E501``: it considers "max-line-length" but only triggers
@@ -348,6 +350,12 @@ MIT
 
 Change Log
 ----------
+
+24.2.6
+~~~~~~
+
+* B902: Remove decorators named validator and root_validator from B902 checks (#459)
+* B038: Change B038 to B909 and make it optional (#456)
 
 24.1.17
 ~~~~~~~
