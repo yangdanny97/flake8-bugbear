@@ -524,7 +524,7 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b020(node)
         self.check_for_b023(node)
         self.check_for_b031(node)
-        self.check_for_b038(node)
+        self.check_for_b909(node)
         self.generic_visit(node)
 
     def visit_AsyncFor(self, node):
@@ -1574,17 +1574,17 @@ class BugBearVisitor(ast.NodeVisitor):
         elif node.func.attr == "split":
             check(2, "maxsplit")
 
-    def check_for_b038(self, node: ast.For):
+    def check_for_b909(self, node: ast.For):
         if isinstance(node.iter, ast.Name):
             name = _to_name_str(node.iter)
         elif isinstance(node.iter, ast.Attribute):
             name = _to_name_str(node.iter)
         else:
             return
-        checker = B038Checker(name)
+        checker = B909Checker(name)
         checker.visit(node.body)
         for mutation in checker.mutations:
-            self.errors.append(B038(mutation.lineno, mutation.col_offset))
+            self.errors.append(B909(mutation.lineno, mutation.col_offset))
 
 
 def compose_call_path(node):
@@ -1597,7 +1597,7 @@ def compose_call_path(node):
         yield node.id
 
 
-class B038Checker(ast.NodeVisitor):
+class B909Checker(ast.NodeVisitor):
     # https://docs.python.org/3/library/stdtypes.html#mutable-sequence-types
     MUTATING_FUNCTIONS = (
         "append",
@@ -2146,12 +2146,22 @@ B908 = Error(
         " statement."
     )
 )
-
-B950 = Error(message="B950 line too long ({} > {} characters)")
-
-B038 = Error(
+B909 = Error(
     message=(
-        "B038 editing a loop's mutable iterable often leads to unexpected results/bugs"
+        "B909 editing a loop's mutable iterable often leads to unexpected results/bugs"
     )
 )
-disabled_by_default = ["B901", "B902", "B903", "B904", "B905", "B906", "B908", "B950"]
+B950 = Error(message="B950 line too long ({} > {} characters)")
+
+
+disabled_by_default = [
+    "B901",
+    "B902",
+    "B903",
+    "B904",
+    "B905",
+    "B906",
+    "B908",
+    "B909",
+    "B950",
+]

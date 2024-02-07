@@ -46,7 +46,6 @@ from bugbear import (
     B035,
     B036,
     B037,
-    B038,
     B901,
     B902,
     B903,
@@ -55,6 +54,7 @@ from bugbear import (
     B906,
     B907,
     B908,
+    B909,
     B950,
     BugBearChecker,
     BugBearVisitor,
@@ -969,27 +969,27 @@ class BugbearTestCase(unittest.TestCase):
         self.assertEqual(proc.stdout, b"")
         self.assertEqual(proc.stderr, b"")
 
-    def test_b038(self):
-        filename = Path(__file__).absolute().parent / "b038.py"
-        mock_options = Namespace(select=[], extend_select=["B038"])
+    def test_b909(self):
+        filename = Path(__file__).absolute().parent / "b909.py"
+        mock_options = Namespace(select=[], extend_select=["B909"])
         bbc = BugBearChecker(filename=str(filename), options=mock_options)
         errors = list(bbc.run())
         print(errors)
         expected = [
-            B038(11, 8),
-            B038(26, 8),
-            B038(27, 8),
-            B038(41, 8),
-            B038(47, 8),
-            B038(56, 8),
-            B038(57, 8),
-            B038(58, 8),
-            B038(59, 8),
-            B038(60, 8),
-            B038(61, 8),
-            B038(62, 8),
-            B038(63, 8),
-            B038(74, 8),
+            B909(11, 8),
+            B909(26, 8),
+            B909(27, 8),
+            B909(41, 8),
+            B909(47, 8),
+            B909(56, 8),
+            B909(57, 8),
+            B909(58, 8),
+            B909(59, 8),
+            B909(60, 8),
+            B909(61, 8),
+            B909(62, 8),
+            B909(63, 8),
+            B909(74, 8),
         ]
         self.assertEqual(errors, self.errors(*expected))
 
