@@ -351,6 +351,12 @@ MIT
 Change Log
 ----------
 
+24.4.21
+~~~~~~~
+
+* B950: Add pragma comment to line length ignores (#463)
+* B909: Add more cases to detect + more container mutating functions (#460)
+
 24.2.6
 ~~~~~~
 
