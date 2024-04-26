@@ -351,6 +351,11 @@ MIT
 Change Log
 ----------
 
+24.4.26
+~~~~~~~
+
+* B909: Fix false positive affecting containers of mutables (#469)
+
 24.4.21
 ~~~~~~~
 
