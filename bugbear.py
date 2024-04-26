@@ -1581,11 +1581,13 @@ class BugBearVisitor(ast.NodeVisitor):
     def check_for_b909(self, node: ast.For):
         if isinstance(node.iter, ast.Name):
             name = _to_name_str(node.iter)
+            key = _to_name_str(node.target)
         elif isinstance(node.iter, ast.Attribute):
             name = _to_name_str(node.iter)
+            key = _to_name_str(node.target)
         else:
             return
-        checker = B909Checker(name)
+        checker = B909Checker(name, key)
         checker.visit(node.body)
         for mutation in itertools.chain.from_iterable(
             m for m in checker.mutations.values()
@@ -1601,6 +1603,46 @@ def compose_call_path(node):
         yield from compose_call_path(node.func)
     elif isinstance(node, ast.Name):
         yield node.id
+
+
+def _tansform_slice_to_py39(slice: ast.Slice) -> ast.Slice | ast.Name:
+    """Transform a py38 style slice to a py39 style slice.
+
+    In py39 the slice was changed to have simple names directly assigned:
+    ```py
+    # code:
+    some_dict[key]
+    # py38:
+    slice=Index(
+        value=Name(
+                lineno=152,
+                col_offset=14,
+                end_lineno=152,
+                end_col_offset=17,
+                id='key',
+                ctx=Load()
+            ),
+    )
+    # py39 onwards:
+    slice=Name(
+                lineno=152,
+                col_offset=14,
+                end_lineno=152,
+                end_col_offset=17,
+                id='key',
+                ctx=Load()
+            ),
+    ```
+
+    > Changed in version 3.9: Simple indices are represented by their value,
+    > extended slices are represented as tuples.
+    from https://docs.python.org/3/library/ast.html#module-ast
+    """
+    if sys.version_info >= (3, 9):
+        return slice
+    if isinstance(slice, ast.Index) and isinstance(slice.value, ast.Name):
+        slice = slice.value
+    return slice
 
 
 class B909Checker(ast.NodeVisitor):
@@ -1624,14 +1666,19 @@ class B909Checker(ast.NodeVisitor):
         "discard",
     )
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, key: str):
         self.name = name
+        self.key = key
         self.mutations = defaultdict(list)
         self._conditional_block = 0
 
     def visit_Assign(self, node: ast.Assign):
         for target in node.targets:
-            if isinstance(target, ast.Subscript) and _to_name_str(target.value):
+            if (
+                isinstance(target, ast.Subscript)
+                and _to_name_str(target.value) == self.name
+                and _to_name_str(_tansform_slice_to_py39(target.slice)) != self.key
+            ):
                 self.mutations[self._conditional_block].append(node)
         self.generic_visit(node)
 

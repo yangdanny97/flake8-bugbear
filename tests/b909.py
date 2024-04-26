@@ -127,3 +127,26 @@ for _ in foo:
         bar.remove(1)
         break
     break
+
+lst: list[dict] = [{}, {}, {}]
+for dic in lst:
+    dic["key"] = False # no error
+
+
+
+for grammar in grammars:
+    errors[grammar.version] = InvalidInput() # no error
+
+
+
+for key in self.hpo_params:
+    if key in nni_config:
+        nni_config[key] = self.hpo_params[key] # no error
+
+
+some_dict = {"foo": "bar"}
+for key in some_dict:
+    some_dict[key] = 3 # no error
+
+for key in some_dict.keys():
+    some_dict[key] = 3 # no error
