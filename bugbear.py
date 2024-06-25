@@ -63,9 +63,9 @@ class BugBearChecker:
             self.load_file()
 
         if self.options and hasattr(self.options, "extend_immutable_calls"):
-            b008_extend_immutable_calls = set(self.options.extend_immutable_calls)
+            b008_b039_extend_immutable_calls = set(self.options.extend_immutable_calls)
         else:
-            b008_extend_immutable_calls = set()
+            b008_b039_extend_immutable_calls = set()
 
         b902_classmethod_decorators: set[str] = B902_default_decorators
         if self.options and hasattr(self.options, "classmethod_decorators"):
@@ -74,7 +74,7 @@ class BugBearChecker:
         visitor = self.visitor(
             filename=self.filename,
             lines=self.lines,
-            b008_extend_immutable_calls=b008_extend_immutable_calls,
+            b008_b039_extend_immutable_calls=b008_b039_extend_immutable_calls,
             b902_classmethod_decorators=b902_classmethod_decorators,
         )
         visitor.visit(self.tree)
@@ -360,7 +360,7 @@ class ExceptBaseExceptionVisitor(ast.NodeVisitor):
 class BugBearVisitor(ast.NodeVisitor):
     filename = attr.ib()
     lines = attr.ib()
-    b008_extend_immutable_calls = attr.ib(default=attr.Factory(set))
+    b008_b039_extend_immutable_calls = attr.ib(default=attr.Factory(set))
     b902_classmethod_decorators = attr.ib(default=attr.Factory(set))
     node_window = attr.ib(default=attr.Factory(list))
     errors = attr.ib(default=attr.Factory(list))
@@ -657,7 +657,7 @@ class BugBearVisitor(ast.NodeVisitor):
 
     def check_for_b006_and_b008(self, node):
         visitor = FunctionDefDefaultsVisitor(
-            B006, B008, self.b008_extend_immutable_calls
+            B006, B008, self.b008_b039_extend_immutable_calls
         )
         visitor.visit(node.args.defaults + node.args.kw_defaults)
         self.errors.extend(visitor.errors)
@@ -681,7 +681,7 @@ class BugBearVisitor(ast.NodeVisitor):
             return
 
         visitor = FunctionDefDefaultsVisitor(
-            B039, B039, self.b008_extend_immutable_calls
+            B039, B039, self.b008_b039_extend_immutable_calls
         )
         visitor.visit(kw.value)
         self.errors.extend(visitor.errors)
@@ -1808,10 +1808,17 @@ class NamedExprFinder(ast.NodeVisitor):
 
 
 class FunctionDefDefaultsVisitor(ast.NodeVisitor):
+    """Used by B006, B008, and B039. B039 is essentially B006+B008 but for ContextVar."""
+
     def __init__(
-        self, error_code_calls, error_code_literals, b008_extend_immutable_calls=None
+        self,
+        error_code_calls,  # B006 or B039
+        error_code_literals,  # B008 or B039
+        b008_b039_extend_immutable_calls=None,
     ):
-        self.b008_extend_immutable_calls = b008_extend_immutable_calls or set()
+        self.b008_b039_extend_immutable_calls = (
+            b008_b039_extend_immutable_calls or set()
+        )
         self.error_code_calls = error_code_calls
         self.error_code_literals = error_code_literals
         for node in B006.mutable_literals + B006.mutable_comprehensions:
@@ -1843,7 +1850,7 @@ class FunctionDefDefaultsVisitor(ast.NodeVisitor):
             self.generic_visit(node)
             return
 
-        if call_path in B008.immutable_calls | self.b008_extend_immutable_calls:
+        if call_path in B008.immutable_calls | self.b008_b039_extend_immutable_calls:
             self.generic_visit(node)
             return
 
@@ -1959,6 +1966,8 @@ B006 = Error(
         "between them."
     )
 )
+
+# Note: these are also used by B039
 B006.mutable_literals = ("Dict", "List", "Set")
 B006.mutable_comprehensions = ("ListComp", "DictComp", "SetComp")
 B006.mutable_calls = {
@@ -1989,6 +1998,8 @@ B008 = Error(
         "use that variable as a default value."
     )
 )
+
+# Note: these are also used by B039
 B008.immutable_calls = {
     "tuple",
     "frozenset",
