@@ -1,6 +1,6 @@
-from contextvars import ContextVar
 import contextvars
 import time
+from contextvars import ContextVar
 
 ContextVar("cv", default=[])  # bad
 ContextVar("cv", default=list())  # bad
