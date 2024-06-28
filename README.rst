@@ -203,6 +203,8 @@ second usage. Save the result to a list if the result is needed multiple times.
 
 **B039**: ``ContextVar`` with mutable literal or function call as default. This is only evaluated once, and all subsequent calls to `.get()` would return the same instance of the default. This uses the same logic as B006 and B008, including ignoring values in ``extend-immutable-calls``.
 
+**B040**: Caught exception with call to ``add_note`` not used. Did you forget to ``raise`` it?
+
 Opinionated warnings
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -357,6 +359,7 @@ FUTURE
 ~~~~~~
 
 * Add B039, ``ContextVar`` with mutable literal or function call as default.
+* Add B040: Exception with added note not reraised. (#474)
 
 24.4.26
 ~~~~~~~

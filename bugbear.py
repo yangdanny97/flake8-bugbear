@@ -12,7 +12,7 @@ from collections import defaultdict, namedtuple
 from contextlib import suppress
 from functools import lru_cache, partial
 from keyword import iskeyword
-from typing import Dict, List, Set, Union
+from typing import Dict, Iterable, Iterator, List, Set, Union
 
 import attr
 import pycodestyle
@@ -55,7 +55,7 @@ class BugBearChecker:
     filename = attr.ib(default="(none)")
     lines = attr.ib(default=None)
     max_line_length = attr.ib(default=79)
-    visitor = attr.ib(init=False, default=attr.Factory(lambda: BugBearVisitor))
+    visitor = attr.ib(init=False, factory=lambda: BugBearVisitor)
     options = attr.ib(default=None)
 
     def run(self):
@@ -227,7 +227,7 @@ def _is_identifier(arg):
     return re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", arg.value) is not None
 
 
-def _flatten_excepthandler(node):
+def _flatten_excepthandler(node: ast.expr | None) -> Iterator[ast.expr | None]:
     if not isinstance(node, ast.Tuple):
         yield node
         return
@@ -356,16 +356,23 @@ class ExceptBaseExceptionVisitor(ast.NodeVisitor):
         return super().generic_visit(node)
 
 
+@attr.define
+class B040CaughtException:
+    name: str
+    has_note: bool
+
+
 @attr.s
 class BugBearVisitor(ast.NodeVisitor):
     filename = attr.ib()
     lines = attr.ib()
-    b008_b039_extend_immutable_calls = attr.ib(default=attr.Factory(set))
-    b902_classmethod_decorators = attr.ib(default=attr.Factory(set))
-    node_window = attr.ib(default=attr.Factory(list))
-    errors = attr.ib(default=attr.Factory(list))
-    futures = attr.ib(default=attr.Factory(set))
-    contexts = attr.ib(default=attr.Factory(list))
+    b008_b039_extend_immutable_calls = attr.ib(factory=set)
+    b902_classmethod_decorators = attr.ib(factory=set)
+    node_window = attr.ib(factory=list)
+    errors = attr.ib(factory=list)
+    futures = attr.ib(factory=set)
+    contexts = attr.ib(factory=list)
+    b040_caught_exception: B040CaughtException | None = attr.ib(default=None)
 
     NODE_WINDOW_SIZE = 4
     _b023_seen = attr.ib(factory=set, init=False)
@@ -428,41 +435,20 @@ class BugBearVisitor(ast.NodeVisitor):
 
         self.check_for_b018(node)
 
-    def visit_ExceptHandler(self, node):
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
         if node.type is None:
             self.errors.append(B001(node.lineno, node.col_offset))
             self.generic_visit(node)
             return
-        handlers = _flatten_excepthandler(node.type)
-        names = []
-        bad_handlers = []
-        ignored_handlers = []
-        for handler in handlers:
-            if isinstance(handler, (ast.Name, ast.Attribute)):
-                name = _to_name_str(handler)
-                if name is None:
-                    ignored_handlers.append(handler)
-                else:
-                    names.append(name)
-            elif isinstance(handler, (ast.Call, ast.Starred)):
-                ignored_handlers.append(handler)
-            else:
-                bad_handlers.append(handler)
-        if bad_handlers:
-            self.errors.append(B030(node.lineno, node.col_offset))
-        if len(names) == 0 and not bad_handlers and not ignored_handlers:
-            self.errors.append(B029(node.lineno, node.col_offset))
-        elif (
-            len(names) == 1
-            and not bad_handlers
-            and not ignored_handlers
-            and isinstance(node.type, ast.Tuple)
-        ):
-            self.errors.append(B013(node.lineno, node.col_offset, vars=names))
+
+        old_b040_caught_exception = self.b040_caught_exception
+        if node.name is None:
+            self.b040_caught_exception = None
         else:
-            maybe_error = _check_redundant_excepthandlers(names, node)
-            if maybe_error is not None:
-                self.errors.append(maybe_error)
+            self.b040_caught_exception = B040CaughtException(node.name, False)
+
+        names = self.check_for_b013_b029_b030(node)
+
         if (
             "BaseException" in names
             and not ExceptBaseExceptionVisitor(node).re_raised()
@@ -470,6 +456,13 @@ class BugBearVisitor(ast.NodeVisitor):
             self.errors.append(B036(node.lineno, node.col_offset))
 
         self.generic_visit(node)
+
+        if (
+            self.b040_caught_exception is not None
+            and self.b040_caught_exception.has_note
+        ):
+            self.errors.append(B040(node.lineno, node.col_offset))
+        self.b040_caught_exception = old_b040_caught_exception
 
     def visit_UAdd(self, node):
         trailing_nodes = list(map(type, self.node_window[-4:]))
@@ -479,8 +472,10 @@ class BugBearVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node):
+        is_b040_add_note = False
         if isinstance(node.func, ast.Attribute):
             self.check_for_b005(node)
+            is_b040_add_note = self.check_for_b040_add_note(node.func)
         else:
             with suppress(AttributeError, IndexError):
                 if (
@@ -509,14 +504,28 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b034(node)
         self.check_for_b039(node)
         self.check_for_b905(node)
+
+        # no need for copying, if used in nested calls it will be set to None
+        current_b040_caught_exception = self.b040_caught_exception
+        if not is_b040_add_note:
+            self.check_for_b040_usage(node.args)
+            self.check_for_b040_usage(node.keywords)
+
         self.generic_visit(node)
+
+        if is_b040_add_note:
+            # Avoid nested calls within the parameter list using the variable itself.
+            # e.g. `e.add_note(str(e))`
+            self.b040_caught_exception = current_b040_caught_exception
 
     def visit_Module(self, node):
         self.generic_visit(node)
 
-    def visit_Assign(self, node):
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self.check_for_b040_usage(node.value)
         if len(node.targets) == 1:
             t = node.targets[0]
+
             if isinstance(t, ast.Attribute) and isinstance(t.value, ast.Name):
                 if (t.value.id, t.attr) == ("os", "environ"):
                     self.errors.append(B003(node.lineno, node.col_offset))
@@ -588,7 +597,12 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b015(node)
         self.generic_visit(node)
 
-    def visit_Raise(self, node):
+    def visit_Raise(self, node: ast.Raise):
+        if node.exc is None:
+            self.b040_caught_exception = None
+        else:
+            self.check_for_b040_usage(node.exc)
+            self.check_for_b040_usage(node.cause)
         self.check_for_b016(node)
         self.check_for_b904(node)
         self.generic_visit(node)
@@ -605,6 +619,7 @@ class BugBearVisitor(ast.NodeVisitor):
 
     def visit_AnnAssign(self, node):
         self.check_for_b032(node)
+        self.check_for_b040_usage(node.value)
         self.generic_visit(node)
 
     def visit_Import(self, node):
@@ -718,6 +733,40 @@ class BugBearVisitor(ast.NodeVisitor):
 
         for child in node.finalbody:
             _loop(child, (ast.Return, ast.Continue, ast.Break))
+
+    def check_for_b013_b029_b030(self, node: ast.ExceptHandler) -> list[str]:
+        handlers: Iterable[ast.expr | None] = _flatten_excepthandler(node.type)
+        names: list[str] = []
+        bad_handlers: list[object] = []
+        ignored_handlers: list[ast.Name | ast.Attribute | ast.Call | ast.Starred] = []
+
+        for handler in handlers:
+            if isinstance(handler, (ast.Name, ast.Attribute)):
+                name = _to_name_str(handler)
+                if name is None:
+                    ignored_handlers.append(handler)
+                else:
+                    names.append(name)
+            elif isinstance(handler, (ast.Call, ast.Starred)):
+                ignored_handlers.append(handler)
+            else:
+                bad_handlers.append(handler)
+        if bad_handlers:
+            self.errors.append(B030(node.lineno, node.col_offset))
+        if len(names) == 0 and not bad_handlers and not ignored_handlers:
+            self.errors.append(B029(node.lineno, node.col_offset))
+        elif (
+            len(names) == 1
+            and not bad_handlers
+            and not ignored_handlers
+            and isinstance(node.type, ast.Tuple)
+        ):
+            self.errors.append(B013(node.lineno, node.col_offset, vars=names))
+        else:
+            maybe_error = _check_redundant_excepthandlers(names, node)
+            if maybe_error is not None:
+                self.errors.append(maybe_error)
+        return names
 
     def check_for_b015(self, node):
         if isinstance(self.node_stack[-2], ast.Expr):
@@ -1080,6 +1129,33 @@ class BugBearVisitor(ast.NodeVisitor):
                 self.errors.append(
                     B035(node.key.lineno, node.key.col_offset, vars=(node.key.id,))
                 )
+
+    def check_for_b040_add_note(self, node: ast.Attribute) -> bool:
+        if (
+            node.attr == "add_note"
+            and isinstance(node.value, ast.Name)
+            and self.b040_caught_exception
+            and node.value.id == self.b040_caught_exception.name
+        ):
+            self.b040_caught_exception.has_note = True
+            return True
+        return False
+
+    def check_for_b040_usage(self, node: ast.expr | None) -> None:
+        def superwalk(node: ast.AST | list[ast.AST]):
+            if isinstance(node, list):
+                for n in node:
+                    yield from ast.walk(n)
+            else:
+                yield from ast.walk(node)
+
+        if not self.b040_caught_exception or node is None:
+            return
+
+        for n in superwalk(node):
+            if isinstance(n, ast.Name) and n.id == self.b040_caught_exception.name:
+                self.b040_caught_exception = None
+                break
 
     def _get_assigned_names(self, loop_node):
         loop_targets = (ast.For, ast.AsyncFor, ast.comprehension)
@@ -1766,7 +1842,7 @@ class NameFinder(ast.NodeVisitor):
     key is name string, value is the node (useful for location purposes).
     """
 
-    names: Dict[str, List[ast.Name]] = attr.ib(default=attr.Factory(dict))
+    names: Dict[str, List[ast.Name]] = attr.ib(factory=dict)
 
     def visit_Name(  # noqa: B906 # names don't contain other names
         self, node: ast.Name
@@ -1791,7 +1867,7 @@ class NamedExprFinder(ast.NodeVisitor):
     key is name string, value is the node (useful for location purposes).
     """
 
-    names: Dict[str, List[ast.Name]] = attr.ib(default=attr.Factory(dict))
+    names: Dict[str, List[ast.Name]] = attr.ib(factory=dict)
 
     def visit_NamedExpr(self, node: ast.NamedExpr):
         self.names.setdefault(node.target.id, []).append(node.target)
@@ -2216,6 +2292,10 @@ B039 = Error(
         "This is only evaluated once, and all subsequent calls to `.get()` "
         "will return the same instance of the default."
     )
+)
+
+B040 = Error(
+    message="B040 Exception with added note not used. Did you forget to raise it?"
 )
 
 # Warnings disabled by default.
