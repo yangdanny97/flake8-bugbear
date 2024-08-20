@@ -57,6 +57,7 @@ from bugbear import (
     B907,
     B908,
     B909,
+    B910,
     B950,
     BugBearChecker,
     BugBearVisitor,
@@ -1039,6 +1040,17 @@ class BugbearTestCase(unittest.TestCase):
             B909(104, 4),
             B909(105, 4),
             B909(125, 4),
+        ]
+        self.assertEqual(errors, self.errors(*expected))
+
+    def test_b910(self):
+        filename = Path(__file__).absolute().parent / "b910.py"
+        mock_options = Namespace(select=[], extend_select=["B910"])
+        bbc = BugBearChecker(filename=str(filename), options=mock_options)
+        errors = list(bbc.run())
+        expected = [
+            B910(3, 4),
+            B910(8, 4),
         ]
         self.assertEqual(errors, self.errors(*expected))
 

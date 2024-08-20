@@ -503,6 +503,7 @@ class BugBearVisitor(ast.NodeVisitor):
         self.check_for_b034(node)
         self.check_for_b039(node)
         self.check_for_b905(node)
+        self.check_for_b910(node)
 
         # no need for copying, if used in nested calls it will be set to None
         current_b040_caught_exception = self.b040_caught_exception
@@ -1706,6 +1707,16 @@ class BugBearVisitor(ast.NodeVisitor):
         ):
             self.errors.append(B909(mutation.lineno, mutation.col_offset))
 
+    def check_for_b910(self, node: ast.Call) -> None:
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "defaultdict"
+            and len(node.args) > 0
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == "int"
+        ):
+            self.errors.append(B910(node.lineno, node.col_offset))
+
 
 def compose_call_path(node):
     if isinstance(node, ast.Attribute):
@@ -2380,6 +2391,9 @@ B909 = Error(
         "B909 editing a loop's mutable iterable often leads to unexpected results/bugs"
     )
 )
+B910 = Error(
+    message="B910 Use Counter() instead of defaultdict(int) to avoid excessive memory use"
+)
 B950 = Error(message="B950 line too long ({} > {} characters)")
 
 
@@ -2392,5 +2406,6 @@ disabled_by_default = [
     "B906",
     "B908",
     "B909",
+    "B910",
     "B950",
 ]

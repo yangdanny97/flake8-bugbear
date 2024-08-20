@@ -273,6 +273,8 @@ on the first line and urls or paths that are on their own line::
       "https://some-super-long-domain-name.com/with/some/very/long/paths"
   )
 
+**B910**: Use Counter() instead of defaultdict(int) to avoid excessive memory use as the default dict will record missing keys with the default value when accessed.
+
 
 How to enable opinionated warnings
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
