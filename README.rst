@@ -254,6 +254,8 @@ This is meant to be enabled by developers writing visitors using the ``ast`` mod
 
 **B909**: **Was B038** - Found a mutation of a mutable loop iterable inside the loop body. Changes to the iterable of a loop such as calls to `list.remove()` or via `del` can cause unintended bugs.
 
+**B910**: Use Counter() instead of defaultdict(int) to avoid excessive memory use as the default dict will record missing keys with the default value when accessed.
+
 **B950**: Line too long. This is a pragmatic equivalent of
 ``pycodestyle``'s ``E501``: it considers "max-line-length" but only triggers
 when the value has been exceeded by **more than 10%**. ``noqa`` and ``type: ignore`` comments are ignored. You will no
@@ -272,8 +274,6 @@ on the first line and urls or paths that are on their own line::
   url = (
       "https://some-super-long-domain-name.com/with/some/very/long/paths"
   )
-
-**B910**: Use Counter() instead of defaultdict(int) to avoid excessive memory use as the default dict will record missing keys with the default value when accessed.
 
 
 How to enable opinionated warnings
