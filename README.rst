@@ -357,11 +357,18 @@ MIT
 Change Log
 ----------
 
-FUTURE
-~~~~~~
+24.8.19
+~~~~~~~
 
-* Add B039, ``ContextVar`` with mutable literal or function call as default.
-* Add B040: Exception with added note not reraised. (#474)
+* B910: implement to suggest using Counter() instead of defaultdict(int) (#489)
+* B901: Do not trigger with explicit Generator return type (#481)
+* B008: add some comments, rename b008_extend_immutable_calls (#476)
+* B040: exception with note added not reraised or used (#477)
+* B039, Add ``ContextVar`` with mutable literal or function call as default
+* B040: Add Exception with added note not reraised. (#474)
+* Run tests in Python 3.13
+* Type annotated code (#481 + #483)
+* Replace hash with unsafe_hash (#486)
 
 24.4.26
 ~~~~~~~
