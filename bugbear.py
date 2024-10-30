@@ -8,7 +8,7 @@ import math
 import re
 import sys
 import warnings
-from collections import defaultdict, namedtuple, Counter
+from collections import Counter, defaultdict, namedtuple
 from contextlib import suppress
 from functools import lru_cache, partial
 from keyword import iskeyword
@@ -662,10 +662,7 @@ class BugBearVisitor(ast.NodeVisitor):
 
         keys = [convert_to_value(key) for key in node.keys]
         key_counts = Counter(keys)
-        duplicate_keys = [
-            key for key, count in key_counts.items()
-            if count > 1
-        ]
+        duplicate_keys = [key for key, count in key_counts.items() if count > 1]
         for key in duplicate_keys:
             key_indices = [i for i, i_key in enumerate(keys) if i_key == key]
             seen = set()
@@ -2370,11 +2367,7 @@ B040 = Error(
     message="B040 Exception with added note not used. Did you forget to raise it?"
 )
 
-B041 = Error(
-    message=(
-        "B041 Repeated key-value pair in dictionary literal."
-    )
-)
+B041 = Error(message=("B041 Repeated key-value pair in dictionary literal."))
 
 # Warnings disabled by default.
 B901 = Error(
