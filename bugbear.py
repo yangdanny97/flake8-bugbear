@@ -649,7 +649,7 @@ class BugBearVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def check_for_b041(self, node) -> None:
-        # Complain if there are duplicate keys in a dictionary literal.
+        # Complain if there are duplicate key-value pairs in a dictionary literal.
         def convert_to_value(item):
             if isinstance(item, ast.Constant):
                 return item.value
@@ -668,9 +668,13 @@ class BugBearVisitor(ast.NodeVisitor):
         ]
         for key in duplicate_keys:
             key_indices = [i for i, i_key in enumerate(keys) if i_key == key]
-            for key_index in key_indices:
-                key_node = node.keys[key_index]
-                self.errors.append(B041(key_node.lineno, key_node.col_offset))
+            seen = set()
+            for index in key_indices:
+                value = convert_to_value(node.values[index])
+                if value in seen:
+                    key_node = node.keys[index]
+                    self.errors.append(B041(key_node.lineno, key_node.col_offset))
+                seen.add(value)
 
     def check_for_b005(self, node) -> None:
         if isinstance(node, ast.Import):
@@ -2368,8 +2372,7 @@ B040 = Error(
 
 B041 = Error(
     message=(
-        "B041 Repeated key in dictionary literal. The last value will override "
-        "any previous values."
+        "B041 Repeated key-value pair in dictionary literal."
     )
 )
 
